@@ -331,7 +331,11 @@ impl<T: Read + Seek> RawLASReader<T> {
 
         let mut convert_buffer =
             VectorBuffer::with_capacity(size_of_chunk, self.las_point_records_layout.clone());
-        convert_buffer.resize(size_of_chunk);
+        // SAFETY: ParLasZipDecompressor::decompress_many immediately overwrites the
+        // buffer, which fills the entire byte range before the converter reads it.
+        unsafe {
+            convert_buffer.resize_uninit(num_points_to_read);
+        }
 
         let source_layout = self.las_point_records_layout.clone();
         let target_layout = point_buffer.point_layout().clone();
@@ -438,7 +442,7 @@ pub struct RawLAZReader<T: Read + Seek + Send> {
     size_of_point_in_file: u64,
 }
 
-impl<'a, T: Read + Seek + Send> RawLAZReader<T> {
+impl<T: Read + Seek + Send> RawLAZReader<T> {
     pub fn from_read(mut read: T, point_layout_matches_memory_layout: bool) -> Result<Self> {
         let raw_header = raw::Header::read_from(&mut read)?;
         let offset_to_first_point_in_file = raw_header.offset_to_point_data as u64;
@@ -571,7 +575,13 @@ impl<'a, T: Read + Seek + Send> RawLAZReader<T> {
 
         let mut convert_buffer =
             VectorBuffer::with_capacity(num_points_to_read, self.las_point_records_layout.clone());
-        convert_buffer.resize(num_points_to_read);
+        // SAFETY: read_into_default_layout immediately overwrites the buffer via
+        // ParLasZipDecompressor::decompress_many, which fills the entire byte range
+        // before the converter reads it.
+        unsafe {
+            convert_buffer.resize_uninit(num_points_to_read);
+        }
+
         self.read_into_default_layout(&mut convert_buffer, num_points_to_read)?;
 
         let target_layout = point_buffer.point_layout().clone();

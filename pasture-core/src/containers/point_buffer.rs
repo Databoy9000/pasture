@@ -258,9 +258,16 @@ pub trait OwningBuffer<'a>: BorrowedMutBuffer<'a> {
     ///
     /// May panic if `point_bytes.len()` is not a multiple of `self.point_layout().size_of_point_record()`
     unsafe fn push_points(&mut self, point_bytes: &[u8]);
+
     /// Resize this buffer to contain exactly `count` points. If `count` is less than `self.len()`, point data
     /// is removed, if `count` is greater than `self.len()` new points are default-constructed (i.e. zero-initialized).
     fn resize(&mut self, count: usize);
+
+    /// Like [`resize`](Self::resize), but new point storage is left uninitialized; the caller must fully overwrite it before any read.
+    unsafe fn resize_uninit(&mut self, count: usize) {
+        self.resize(count);
+    }
+
     /// Clears the contents of this buffer, removing all point data and setting the length to `0`
     fn clear(&mut self);
 }
@@ -833,6 +840,18 @@ where
     fn resize(&mut self, count: usize) {
         let size_of_point = self.point_layout.size_of_point_entry() as usize;
         self.storage.resize(count * size_of_point, 0);
+        self.length = count;
+    }
+
+    unsafe fn resize_uninit(&mut self, count: usize) {
+        let size_of_point = self.point_layout.size_of_point_entry() as usize;
+        let required = count * size_of_point;
+        if required > self.storage.capacity() {
+            self.storage.reserve(required - self.storage.len());
+        }
+        // SAFETY: capacity ≥ required just ensured; caller commits to overwriting
+        // every byte in 0..required before reading per the trait's safety contract.
+        unsafe { self.storage.set_len(required) };
         self.length = count;
     }
 
