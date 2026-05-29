@@ -4,7 +4,7 @@ use std::io::{Read, Seek, SeekFrom};
 use anyhow::{Context, Result, anyhow, bail};
 use las_rs::Header;
 use las_rs::{Builder, Vlr, raw};
-use laz::LasZipDecompressor;
+use laz::ParLasZipDecompressor;
 use pasture_core::containers::{BorrowedMutBuffer, OwningBuffer, VectorBuffer};
 use pasture_core::layout::PointAttributeDataType;
 use pasture_core::layout::attributes::{
@@ -429,8 +429,8 @@ impl<T: Read + Seek> SeekToPoint for RawLASReader<T> {
     }
 }
 
-pub struct RawLAZReader<'a, T: Read + Seek + Send + 'a> {
-    reader: LasZipDecompressor<'a, T>,
+pub struct RawLAZReader<T: Read + Seek + Send> {
+    reader: ParLasZipDecompressor<T>,
     metadata: LASMetadata,
     layout: PointLayout,
     las_point_records_layout: PointLayout,
@@ -438,7 +438,7 @@ pub struct RawLAZReader<'a, T: Read + Seek + Send + 'a> {
     size_of_point_in_file: u64,
 }
 
-impl<'a, T: Read + Seek + Send + 'a> RawLAZReader<'a, T> {
+impl<'a, T: Read + Seek + Send> RawLAZReader<T> {
     pub fn from_read(mut read: T, point_layout_matches_memory_layout: bool) -> Result<Self> {
         let raw_header = raw::Header::read_from(&mut read)?;
         let offset_to_first_point_in_file = raw_header.offset_to_point_data as u64;
@@ -488,7 +488,7 @@ impl<'a, T: Read + Seek + Send + 'a> RawLAZReader<'a, T> {
                 Ok(laz_record)
             }
         }?;
-        let reader = LasZipDecompressor::new(read, laszip_vlr).map_err(map_laz_err)?;
+        let reader = ParLasZipDecompressor::new(read, laszip_vlr).map_err(map_laz_err)?;
 
         Ok(Self {
             reader,
@@ -587,7 +587,7 @@ impl<'a, T: Read + Seek + Send + 'a> RawLAZReader<'a, T> {
     }
 }
 
-impl<'a, T: Read + Seek + Send + 'a> LASReaderBase for RawLAZReader<'a, T> {
+impl<'a, T: Read + Seek + Send> LASReaderBase for RawLAZReader<T> {
     fn remaining_points(&self) -> usize {
         self.metadata.point_count() - self.current_point_index
     }
@@ -597,7 +597,7 @@ impl<'a, T: Read + Seek + Send + 'a> LASReaderBase for RawLAZReader<'a, T> {
     }
 }
 
-impl<'a, T: Read + Seek + Send + 'a> PointReader for RawLAZReader<'a, T> {
+impl<'a, T: Read + Seek + Send> PointReader for RawLAZReader<T> {
     fn read_into<'b, 'c, B: BorrowedMutBuffer<'b>>(
         &mut self,
         point_buffer: &'c mut B,
@@ -626,7 +626,7 @@ impl<'a, T: Read + Seek + Send + 'a> PointReader for RawLAZReader<'a, T> {
     }
 }
 
-impl<'a, T: Read + Seek + Send + 'a> SeekToPoint for RawLAZReader<'a, T> {
+impl<T: Read + Seek + Send> SeekToPoint for RawLAZReader<T> {
     fn seek_point(&mut self, position: SeekFrom) -> Result<usize> {
         let new_position = match position {
             SeekFrom::Start(from_start) => from_start as i64,

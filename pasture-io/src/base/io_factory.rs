@@ -46,7 +46,7 @@ fn get_extension_lookup(path: &Path) -> Result<SupportedFileExtensions> {
 }
 
 pub enum GenericPointReader {
-    LAS(LASReader<'static, BufReader<File>>),
+    LAS(LASReader<BufReader<File>>),
     Tiles3D(PntsReader<BufReader<File>>),
 }
 

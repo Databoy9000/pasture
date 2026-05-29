@@ -12,12 +12,12 @@ use pasture_core::{containers::BorrowedMutBuffer, layout::PointLayout, meta::Met
 
 use super::{LASMetadata, LASReaderBase, RawLASReader, RawLAZReader, path_is_compressed_las_file};
 
-pub enum LASReaderFlavor<'a, T: Read + Seek + Send + 'a> {
+pub enum LASReaderFlavor<T: Read + Seek + Send> {
     LAS(RawLASReader<T>),
-    LAZ(RawLAZReader<'a, T>),
+    LAZ(RawLAZReader<T>),
 }
 
-impl<'a, T: Read + Seek + Send + 'a> LASReaderFlavor<'a, T> {
+impl<T: Read + Seek + Send> LASReaderFlavor<T> {
     pub fn remaining_points(&self) -> usize {
         match self {
             LASReaderFlavor::LAS(reader) => reader.remaining_points(),
@@ -33,7 +33,7 @@ impl<'a, T: Read + Seek + Send + 'a> LASReaderFlavor<'a, T> {
     }
 }
 
-impl<'a, T: Read + Seek + Send + 'a> PointReader for LASReaderFlavor<'a, T> {
+impl<T: Read + Seek + Send> PointReader for LASReaderFlavor<T> {
     fn read_into<'b, 'c, B: BorrowedMutBuffer<'b>>(
         &mut self,
         point_buffer: &'c mut B,
@@ -63,7 +63,7 @@ impl<'a, T: Read + Seek + Send + 'a> PointReader for LASReaderFlavor<'a, T> {
     }
 }
 
-impl<'a, T: Read + Seek + Send + 'a> SeekToPoint for LASReaderFlavor<'a, T> {
+impl<T: Read + Seek + Send> SeekToPoint for LASReaderFlavor<T> {
     fn seek_point(&mut self, position: SeekFrom) -> Result<usize> {
         match self {
             LASReaderFlavor::LAS(reader) => reader.seek_point(position),
@@ -73,11 +73,11 @@ impl<'a, T: Read + Seek + Send + 'a> SeekToPoint for LASReaderFlavor<'a, T> {
 }
 
 /// `PointReader` implementation for LAS/LAZ files
-pub struct LASReader<'a, R: Read + Seek + Send + 'a> {
-    raw_reader: LASReaderFlavor<'a, R>,
+pub struct LASReader<R: Read + Seek + Send> {
+    raw_reader: LASReaderFlavor<R>,
 }
 
-impl LASReader<'static, BufReader<File>> {
+impl LASReader<BufReader<File>> {
     /// Creates a new `LASReader` by opening the file at the given `path`. Tries to determine whether
     /// the file is compressed from the file extension (i.e. files with extension `.laz` are assumed to be
     /// compressed). If `point_layout_matches_memory_layout`
@@ -90,14 +90,14 @@ impl LASReader<'static, BufReader<File>> {
     pub fn from_path<P: AsRef<Path>>(
         path: P,
         point_layout_matches_memory_layout: bool,
-    ) -> Result<LASReader<'static, BufReader<File>>> {
+    ) -> Result<LASReader<BufReader<File>>> {
         let is_compressed = path_is_compressed_las_file(path.as_ref())?;
         let file = BufReader::new(File::open(path)?);
         Self::from_read(file, is_compressed, point_layout_matches_memory_layout)
     }
 }
 
-impl<'a, R: Read + Seek + Send> LASReader<'a, R> {
+impl<R: Read + Seek + Send> LASReader<R> {
     /// Creates a new `LASReader` from the given `read`. This method has to know whether
     /// the `read` points to a compressed LAZ file or a regular LAS file. If `point_layout_matches_memory_layout`
     /// is `true`, the reader will return point data with a `PointLayout` that exactly matches the binary
@@ -143,7 +143,7 @@ impl<'a, R: Read + Seek + Send> LASReader<'a, R> {
     }
 }
 
-impl<'a, R: Read + Seek + Send + 'a> PointReader for LASReader<'a, R> {
+impl<R: Read + Seek + Send> PointReader for LASReader<R> {
     fn get_metadata(&self) -> &dyn Metadata {
         self.raw_reader.get_metadata()
     }
@@ -164,7 +164,7 @@ impl<'a, R: Read + Seek + Send + 'a> PointReader for LASReader<'a, R> {
     }
 }
 
-impl<'a, R: Read + Seek + Send + 'a> SeekToPoint for LASReader<'a, R> {
+impl<R: Read + Seek + Send> SeekToPoint for LASReader<R> {
     fn seek_point(&mut self, position: SeekFrom) -> Result<usize> {
         self.raw_reader.seek_point(position)
     }
