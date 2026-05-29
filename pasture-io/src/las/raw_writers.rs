@@ -1177,9 +1177,22 @@ impl<T: std::io::Write + std::io::Seek + Send + Sync + 'static> RawLAZWriter<T> 
     }
 
     fn do_flush(&mut self) -> Result<()> {
+        // `LasZipCompressor::done()` writes the chunk table and updates the
+        // offset-to-chunk-table field at the start of the LAZ block. Calling
+        // it twice writes a second (empty) chunk table and overwrites the
+        // offset to point at the bogus one, which the serial decompressor
+        // tolerates (it never consults the chunk table) but the parallel
+        // decompressor rejects with "failed to fill whole buffer". Gate the
+        // whole flush on `requires_flush` so write+flush+into_inner only
+        // finalizes once. Mirrors `RawLASWriter::flush`.
+        if !self.requires_flush {
+            return Ok(());
+        }
         self.writer.done()?;
         self.write_evlrs()?;
-        self.write_header()
+        self.write_header()?;
+        self.requires_flush = false;
+        Ok(())
     }
 }
 
