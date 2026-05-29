@@ -25,9 +25,13 @@ pub trait PointReader {
         count: usize,
     ) -> Result<B> {
         let mut buffer = B::new_from_layout(self.get_default_point_layout().clone());
-        buffer.resize(count);
+        // SAFETY: read_into fills the first `actual_count` points; we truncate
+        // to that length before returning, so no uninit bytes are observable.
+        unsafe { buffer.resize_uninit(count) };
+
         let actual_count = self.read_into(&mut buffer, count)?;
         buffer.resize(actual_count);
+
         Ok(buffer)
     }
 
