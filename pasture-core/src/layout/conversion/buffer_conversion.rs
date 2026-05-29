@@ -618,44 +618,75 @@ impl<'a> BufferLayoutConverter<'a> {
     ) {
         let mut buffer: Vec<u8> = vec![0; max_attribute_size];
 
-        // For each attribute...
         for mapping in &self.mappings {
             let source_attribute_view = source_buffer.view_raw_attribute(mapping.source_attribute);
             let mut target_attribute_view =
                 target_buffer.view_raw_attribute_mut(mapping.target_attribute);
+            let src_size = mapping.source_attribute.size() as usize;
 
-            // Then apply conversions and transformations for each point
-            for (source_index, target_index) in source_range.clone().zip(target_range.clone()) {
-                let source_attribute_data = &source_attribute_view[source_index];
-                let target_attribute_data = &mut target_attribute_view[target_index];
+            match (mapping.converter, mapping.transformation.as_ref()) {
+                (None, None) => {
+                    for (source_index, target_index) in
+                        source_range.clone().zip(target_range.clone())
+                    {
+                        target_attribute_view[target_index]
+                            .copy_from_slice(&source_attribute_view[source_index]);
+                    }
+                }
+                (None, Some(transformation)) => {
+                    let func = &transformation.func;
 
-                if let Some(converter) = mapping.converter {
-                    if let Some(transformation) = mapping.transformation.as_ref() {
-                        if transformation.apply_to_source_attribute {
-                            let buf = &mut buffer[..mapping.source_attribute.size() as usize];
-                            buf.copy_from_slice(source_attribute_data);
-                            (transformation.func)(buf);
-                            unsafe {
-                                converter(buf, target_attribute_data);
-                            }
-                        } else {
-                            unsafe {
-                                converter(source_attribute_data, target_attribute_data);
-                            }
-                            (transformation.func)(target_attribute_data);
-                        }
-                    } else {
+                    for (source_index, target_index) in
+                        source_range.clone().zip(target_range.clone())
+                    {
+                        let buf = &mut buffer[..src_size];
+                        buf.copy_from_slice(&source_attribute_view[source_index]);
+
+                        func(buf);
+                        target_attribute_view[target_index].copy_from_slice(buf);
+                    }
+                }
+                (Some(converter), None) => {
+                    for (source_index, target_index) in
+                        source_range.clone().zip(target_range.clone())
+                    {
                         unsafe {
-                            converter(source_attribute_data, target_attribute_data);
+                            converter(
+                                &source_attribute_view[source_index],
+                                &mut target_attribute_view[target_index],
+                            );
                         }
                     }
-                } else if let Some(transformation) = mapping.transformation.as_ref() {
-                    let buf = &mut buffer[..mapping.source_attribute.size() as usize];
-                    buf.copy_from_slice(source_attribute_data);
-                    (transformation.func)(buf);
-                    target_attribute_data.copy_from_slice(buf);
-                } else {
-                    target_attribute_data.copy_from_slice(source_attribute_data);
+                }
+                (Some(converter), Some(transformation))
+                    if transformation.apply_to_source_attribute =>
+                {
+                    let func = &transformation.func;
+
+                    for (source_index, target_index) in
+                        source_range.clone().zip(target_range.clone())
+                    {
+                        let buf = &mut buffer[..src_size];
+                        buf.copy_from_slice(&source_attribute_view[source_index]);
+
+                        func(buf);
+                        unsafe { converter(buf, &mut target_attribute_view[target_index]) };
+                    }
+                }
+                (Some(converter), Some(transformation)) => {
+                    let func = &transformation.func;
+
+                    for (source_index, target_index) in
+                        source_range.clone().zip(target_range.clone())
+                    {
+                        unsafe {
+                            converter(
+                                &source_attribute_view[source_index],
+                                &mut target_attribute_view[target_index],
+                            );
+                        }
+                        func(&mut target_attribute_view[target_index]);
+                    }
                 }
             }
         }
