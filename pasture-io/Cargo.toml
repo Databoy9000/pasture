@@ -18,7 +18,7 @@ pasture-core = {version = "=0.5.0", path = "../pasture-core" }
 pasture-derive = {version = "=0.5.0", path = "../pasture-derive"}
 anyhow = "1.0.34"
 las = { version = "0.8", features = ["laz"] }
-laz = { version = "0.8", features = ["parallel"] }
+laz = { version = "0.12", features = ["parallel"] }
 static_assertions = "1.1.0"
 scopeguard = "1.1.0"
 byteorder = "1.4.2"

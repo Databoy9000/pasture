@@ -23,7 +23,7 @@ pub struct LASWriter<T: Write + Seek + Send + 'static> {
     writer: WriterVariant<T>,
 }
 
-impl<T: Write + Seek + Send + 'static> LASWriter<T> {
+impl<T: Write + Seek + Send + Sync + 'static> LASWriter<T> {
     /// Creates a new `LASWriter` from the given `writer`. This uses a default-created LAS header for writing,
     /// with an appropriate point format determined from the given `point_layout`. The LAS header uses a scale
     /// of 0.001, which yields 1mm precision. LAS version 1.4 is used.
@@ -101,7 +101,7 @@ impl LASWriter<BufWriter<File>> {
     }
 }
 
-impl<T: Write + Seek + Send + 'static> PointWriter for LASWriter<T> {
+impl<T: Write + Seek + Send + Sync + 'static> PointWriter for LASWriter<T> {
     fn write<'a, B: BorrowedBuffer<'a>>(&mut self, points: &'a B) -> Result<()> {
         match &mut self.writer {
             WriterVariant::LAS(writer) => writer.write(points),

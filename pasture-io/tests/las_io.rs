@@ -403,5 +403,5 @@ fn test_read_weird_laz_file() {
     let points = reader
         .read::<VectorBuffer>(reader.remaining_points())
         .unwrap();
-    assert_eq!(!points.is_empty());
+    assert!(!points.is_empty());
 }

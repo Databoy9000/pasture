@@ -644,7 +644,7 @@ pub(crate) struct RawLAZWriter<T: std::io::Write + std::io::Seek + Send + 'stati
     requires_flush: bool,
 }
 
-impl<T: std::io::Write + std::io::Seek + Send + 'static> RawLAZWriter<T> {
+impl<T: std::io::Write + std::io::Seek + Send + Sync + 'static> RawLAZWriter<T> {
     pub fn from_write_and_header(mut write: T, header: las::Header) -> Result<Self> {
         let las_metadata = (&header).try_into().context("Could not parse LAS header")?;
         let default_layout = point_layout_from_las_metadata(&las_metadata, false)
@@ -1183,7 +1183,7 @@ impl<T: std::io::Write + std::io::Seek + Send + 'static> RawLAZWriter<T> {
     }
 }
 
-impl<T: std::io::Write + std::io::Seek + Send + 'static> PointWriter for RawLAZWriter<T> {
+impl<T: std::io::Write + std::io::Seek + Send + Sync + 'static> PointWriter for RawLAZWriter<T> {
     fn write<'a, B: BorrowedBuffer<'a>>(&mut self, points: &'a B) -> Result<()> {
         if *points.point_layout() != self.default_layout {
             self.write_points_custom_layout(points)
