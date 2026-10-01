@@ -382,7 +382,7 @@ fn compare_attribute<
     assert_eq!(buffer1.len(), buffer2.len());
     for (idx, (a1, a2)) in attributes1
         .into_iter()
-        .zip(attributes2.into_iter())
+        .zip(attributes2)
         .enumerate()
     {
         assert_eq!(

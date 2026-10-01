@@ -263,7 +263,11 @@ pub trait OwningBuffer<'a>: BorrowedMutBuffer<'a> {
     /// is removed, if `count` is greater than `self.len()` new points are default-constructed (i.e. zero-initialized).
     fn resize(&mut self, count: usize);
 
-    /// Like [`resize`](Self::resize), but new point storage is left uninitialized; the caller must fully overwrite it before any read.
+    /// Like [`resize`](Self::resize), but new point storage is left uninitialized.
+    ///
+    /// # Safety
+    ///
+    /// The caller must fully overwrite the new point storage before any read.
     unsafe fn resize_uninit(&mut self, count: usize) {
         self.resize(count);
     }

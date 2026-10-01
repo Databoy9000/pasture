@@ -597,7 +597,7 @@ impl<T: Read + Seek + Send> RawLAZReader<T> {
     }
 }
 
-impl<'a, T: Read + Seek + Send> LASReaderBase for RawLAZReader<T> {
+impl<T: Read + Seek + Send> LASReaderBase for RawLAZReader<T> {
     fn remaining_points(&self) -> usize {
         self.metadata.point_count() - self.current_point_index
     }
@@ -607,7 +607,7 @@ impl<'a, T: Read + Seek + Send> LASReaderBase for RawLAZReader<T> {
     }
 }
 
-impl<'a, T: Read + Seek + Send> PointReader for RawLAZReader<T> {
+impl<T: Read + Seek + Send> PointReader for RawLAZReader<T> {
     fn read_into<'b, 'c, B: BorrowedMutBuffer<'b>>(
         &mut self,
         point_buffer: &'c mut B,
