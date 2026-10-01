@@ -698,7 +698,9 @@ impl<T: std::io::Write + std::io::Seek + Send + Sync + 'static> RawLAZWriter<T> 
             data: raw_laz_vlr_cursor.into_inner(),
         };
 
+        // `Builder::new` drops the VLRs, so carry over the header's own
         let mut header_builder = Builder::new(raw_header)?;
+        header_builder.vlrs.extend(header.vlrs().iter().cloned());
         header_builder.vlrs.push(laz_vlr);
         let header_with_laz_vlr = header_builder.into_header()?;
         header_with_laz_vlr
@@ -1623,4 +1625,34 @@ mod tests {
     laz_write_tests!(laz_write_1, 1, LasPointFormat1);
     laz_write_tests!(laz_write_2, 2, LasPointFormat2);
     laz_write_tests!(laz_write_3, 3, LasPointFormat3);
+
+    #[test]
+    fn test_raw_laz_writer_keeps_header_vlrs() -> Result<()> {
+        use las_rs::Read as _;
+
+        let test_data = get_test_points_in_las_format(0, false)?;
+
+        let vlr = Vlr {
+            user_id: "LASF_Projection".to_owned(),
+            record_id: 34735,
+            description: String::new(),
+            data: vec![1, 0, 1, 0, 0, 0, 0, 0],
+        };
+        let mut header_builder = Builder::from((1, 4));
+        header_builder.point_format = Format::new(0)?;
+        header_builder.vlrs.push(vlr.clone());
+
+        let mut writer = RawLAZWriter::from_write_and_header(
+            Cursor::new(Vec::new()),
+            header_builder.into_header()?,
+        )?;
+        writer.write(&test_data)?;
+        let bytes = writer.into_inner()?.into_inner();
+
+        let reader = las_rs::Reader::new(Cursor::new(bytes))?;
+        assert!(reader.header().vlrs().contains(&vlr));
+        assert_eq!(reader.header().number_of_points(), test_data.len() as u64);
+
+        Ok(())
+    }
 }
